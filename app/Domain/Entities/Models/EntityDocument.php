@@ -16,6 +16,7 @@ class EntityDocument extends Model
     protected $fillable = [
         'entity_id',
         'document_type',
+        "title",
         'file_name',
         'file_path',
         'mime_type',

@@ -34,14 +34,27 @@ class PaymentController extends Controller
         return PaymentResource::collection($payments);
     }
 
-    public function store(StorePaymentRequest $request): JsonResponse
-    {
-        $payment = $this->paymentService->createManual($request->validated());
+    public function store(StorePaymentRequest $request): PaymentResource
+{
+    $this->authorize('create', Payment::class);
 
-        return (new PaymentResource($payment))
-            ->response()
-            ->setStatusCode(201);
-    }
+    $payment = $this->paymentService->create(
+        contract_id: $request->contract_id,
+        measurement_id: $request->measurement_id,  // ← ADICIONAR
+        payment_type: $request->payment_type,
+        gross_amount: $request->gross_amount,
+        vat_rate: $request->vat_rate,
+        withholding_tax_rate: $request->withholding_tax_rate,
+        stamp_duty_rate: $request->stamp_duty_rate ?? 0,
+        retention_amount: $request->retention_amount ?? 0,
+        due_date: $request->due_date,
+        invoice_date: $request->invoice_date,
+        invoice_number: $request->invoice_number,
+        notes: $request->notes
+    );
+
+    return new PaymentResource($payment);
+}
 
     public function show(Payment $payment): PaymentResource
     {

@@ -15,6 +15,8 @@ use App\Http\Controllers\Api\V1\EntityDocumentController;
 use App\Http\Controllers\Api\V1\DocumentUploadController;
 use App\Http\Controllers\Api\V1\ContractDocumentController;
 use App\Http\Controllers\Api\V1\ContractProgressController;
+use App\Http\Controllers\Api\V1\SettingsController;
+
 
 
 use Illuminate\Support\Facades\Route;
@@ -86,40 +88,40 @@ Route::prefix('v1')
             ->name('dashboard.overview');
 
         // ─── Entidades ──────────────────────────────────────────────
-Route::controller(EntityController::class)
-    ->prefix('entities')
-    ->name('entities.')
-    ->group(function () {
-        Route::get('/', 'index')->name('index');
-        Route::post('/', 'store')->name('store');
-        Route::get('/compliance/alerts', 'complianceAlerts')->name('compliance.alerts');
-        Route::get('/{entity}', 'show')->name('show');
-        Route::put('/{entity}', 'update')->name('update');
-        Route::delete('/{entity}', 'destroy')->name('destroy');
-        Route::post('/{entity}/suspend', 'suspend')->name('suspend');
-        Route::post('/{entity}/reactivate', 'reactivate')->name('reactivate');
-    });
+        Route::controller(EntityController::class)
+            ->prefix('entities')
+            ->name('entities.')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('/', 'store')->name('store');
+                Route::get('/compliance/alerts', 'complianceAlerts')->name('compliance.alerts');
+                Route::get('/{entity}', 'show')->name('show');
+                Route::put('/{entity}', 'update')->name('update');
+                Route::delete('/{entity}', 'destroy')->name('destroy');
+                Route::post('/{entity}/suspend', 'suspend')->name('suspend');
+                Route::post('/{entity}/reactivate', 'reactivate')->name('reactivate');
+            });
 
-// ─── Documentos de Entidades (NOVO) ─────────────────────────
-Route::controller(EntityDocumentController::class)
-    ->prefix('entities/{entity}/documents')
-    ->name('entities.documents.')
-    ->group(function () {
-        Route::get('/', 'index')->name('index');
-        Route::get('/{document}', 'show')->name('show');
-        Route::delete('/{document}', 'destroy')->name('destroy');
-    });
+        // ─── Documentos de Entidades (NOVO) ─────────────────────────
+        Route::controller(EntityDocumentController::class)
+            ->prefix('entities/{entity}/documents')
+            ->name('entities.documents.')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::get('/{document}', 'show')->name('show');
+                Route::delete('/{document}', 'destroy')->name('destroy');
+            });
 
-    // ─── Upload de Documentos ───────────────────────────────────
-Route::controller(DocumentUploadController::class)
-    ->prefix('documents')
-    ->name('documents.')
-    ->group(function () {
-        Route::post('/entities/{entity}/upload', 'uploadEntityDocument')->name('entities.upload');
-        Route::post('/contracts/{contract}/upload', 'uploadContractDocument')->name('contracts.upload');
-        Route::post('/guarantees/{guarantee}/upload', 'uploadGuaranteeDocument')->name('guarantees.upload');
-        Route::get('/{type}/{id}/download', 'download')->name('download');
-    });
+        // ─── Upload de Documentos ───────────────────────────────────
+        Route::controller(DocumentUploadController::class)
+            ->prefix('documents')
+            ->name('documents.')
+            ->group(function () {
+                Route::post('/entities/{entity}/upload', 'uploadEntityDocument')->name('entities.upload');
+                Route::post('/contracts/{contract}/upload', 'uploadContractDocument')->name('contracts.upload');
+                Route::post('/guarantees/{guarantee}/upload', 'uploadGuaranteeDocument')->name('guarantees.upload');
+                Route::get('/{type}/{id}/download', 'download')->name('download');
+            });
 
         // Contracts
         Route::controller(ContractController::class)->prefix('contracts')->name('contracts.')->group(function () {
@@ -139,24 +141,24 @@ Route::controller(DocumentUploadController::class)
         });
 
         // ─── Documentos de Contratos ────────────────────────────────
-Route::controller(ContractDocumentController::class)
-    ->prefix('contracts/{contract}/documents')
-    ->name('contracts.documents.')
-    ->group(function () {
-        Route::get('/', 'index')->name('index');
-        Route::get('/{document}', 'show')->name('show');
-        Route::delete('/{document}', 'destroy')->name('destroy');
-    });
+        Route::controller(ContractDocumentController::class)
+            ->prefix('contracts/{contract}/documents')
+            ->name('contracts.documents.')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::get('/{document}', 'show')->name('show');
+                Route::delete('/{document}', 'destroy')->name('destroy');
+            });
 
-// ─── Progresso de Contratos ─────────────────────────────────
-Route::controller(ContractProgressController::class)
-    ->prefix('contracts/{contract}/progress')
-    ->name('contracts.progress.')
-    ->group(function () {
-        Route::get('/', 'show')->name('show');
-        Route::post('/', 'update')->name('update');
-        Route::post('/calculate', 'calculate')->name('calculate');
-    });
+        // ─── Progresso de Contratos ─────────────────────────────────
+        Route::controller(ContractProgressController::class)
+            ->prefix('contracts/{contract}/progress')
+            ->name('contracts.progress.')
+            ->group(function () {
+                Route::get('/', 'show')->name('show');
+                Route::post('/', 'update')->name('update');
+                Route::post('/calculate', 'calculate')->name('calculate');
+            });
 
         // Guarantees
         Route::controller(GuaranteeController::class)->prefix('guarantees')->name('guarantees.')->group(function () {
@@ -212,5 +214,32 @@ Route::controller(ContractProgressController::class)
             Route::get('/{taxConfiguration}', 'show')->name('show');
             Route::put('/{taxConfiguration}', 'update')->name('update');
             Route::delete('/{taxConfiguration}', 'destroy')->name('destroy');
+        });
+
+
+        // ─── Definições ─────────────────────────────────────────────
+        Route::prefix('settings')->name('settings.')->group(function () {
+            Route::controller(SettingsController::class)->group(function () {
+                // Company
+                Route::get('/company', 'getCompany')->name('company.get');
+                Route::put('/company', 'updateCompany')->name('company.update');
+                Route::put('/company/features', 'updateCompanyFeatures')->name('company.features');
+
+                // Tax Configurations
+                Route::get('/tax-configurations', 'getTaxConfigurations')->name('tax.index');
+                Route::put('/tax-configurations/{id}', 'updateTaxConfiguration')->name('tax.update');
+
+                // Users
+                Route::get('/users', 'getUsers')->name('users.index');
+                Route::post('/users', 'createUser')->name('users.store');
+                Route::put('/users/{id}', 'updateUser')->name('users.update');
+                Route::post('/users/{id}/toggle-status', 'toggleUserStatus')->name('users.toggle');
+
+                // Roles
+                Route::get('/roles', 'getRoles')->name('roles.index');
+                Route::put('/roles/{id}', 'updateRole')->name('roles.update');
+                Route::post('/', 'storeRole')->name('roles.store');
+Route::delete('/{id}', 'destroyRole')->name('roles.destroy');
+            });
         });
     });

@@ -112,6 +112,13 @@ class PaymentResource extends JsonResource
             'links' => [
                 'self' => route('api.v1.payments.show', $this->id),
             ],
+
+            'measurement' => $this->whenLoaded('measurement', function () {
+    return [
+        'id' => $this->measurement->id,
+        'number' => $this->measurement->measurement_number,
+    ];
+}),
         ];
     }
 }

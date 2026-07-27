@@ -4,15 +4,18 @@ declare(strict_types=1);
 
 namespace App\Domain\Tax\Models;
 
+use App\Domain\Companies\Models\Company;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class TaxConfiguration extends Model
 {
     use HasFactory, HasUuids;
 
     protected $fillable = [
+        'company_id',
         'tax_type',
         'name',
         'description',
@@ -21,6 +24,7 @@ class TaxConfiguration extends Model
         'valid_from',
         'valid_to',
         'is_active',
+        'applies_to',
     ];
 
     protected $casts = [
@@ -29,41 +33,11 @@ class TaxConfiguration extends Model
         'valid_from' => 'date',
         'valid_to' => 'date',
         'is_active' => 'boolean',
+        'applies_to' => 'array',
     ];
 
-    // ─── Scopes ──────────────────────────────────────────────
-
-    public function scopeActive($query)
+    public function company(): BelongsTo
     {
-        return $query->where('is_active', true);
-    }
-
-    public function scopeOfType($query, string $type)
-    {
-        return $query->where('tax_type', $type);
-    }
-
-    public function scopeValidAt($query, $date = null)
-    {
-        $date = $date ?? now();
-
-        return $query->where('valid_from', '<=', $date)
-                     ->where(function ($q) use ($date) {
-                         $q->whereNull('valid_to')
-                           ->orWhere('valid_to', '>=', $date);
-                     });
-    }
-
-    // ─── Static Methods ──────────────────────────────────────
-
-    public static function getCurrentRate(string $type, $date = null): ?float
-    {
-        $config = self::active()
-            ->ofType($type)
-            ->validAt($date)
-            ->orderByDesc('valid_from')
-            ->first();
-
-        return $config?->rate;
+        return $this->belongsTo(Company::class);
     }
 }

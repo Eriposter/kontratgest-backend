@@ -98,6 +98,54 @@ class PaymentService
     /**
      * Criar pagamento manual (adiantamento, marco, etc).
      */
+
+    public function create(
+    string $contract_id,
+    ?string $measurement_id,  // ← ADICIONAR
+    string $payment_type,
+    float $gross_amount,
+    float $vat_rate,
+    float $withholding_tax_rate,
+    float $stamp_duty_rate = 0,
+    float $retention_amount = 0,
+    ?string $due_date = null,
+    ?string $invoice_date = null,
+    ?string $invoice_number = null,
+    ?string $notes = null
+): Payment {
+    $contract = Contract::findOrFail($contract_id);
+    
+    // Calcular valores
+    $vat_amount = $gross_amount * ($vat_rate / 100);
+    $withholding_amount = $gross_amount * ($withholding_tax_rate / 100);
+    $stamp_duty_amount = $gross_amount * ($stamp_duty_rate / 100);
+    $net_amount = $gross_amount + $vat_amount - $withholding_amount - $stamp_duty_amount - $retention_amount;
+
+    return Payment::create([
+        'company_id' => $contract->company_id,
+        'contract_id' => $contract_id,
+        'measurement_id' => $measurement_id,  // ← ADICIONAR
+        'payment_number' => $this->generatePaymentNumber(),
+        'payment_type' => $payment_type,
+        'currency' => $contract->currency,
+        'gross_amount' => $gross_amount,
+        'vat_rate' => $vat_rate,
+        'vat_amount' => $vat_amount,
+        'withholding_tax_rate' => $withholding_tax_rate,
+        'withholding_tax_amount' => $withholding_amount,
+        'stamp_duty_rate' => $stamp_duty_rate,
+        'stamp_duty_amount' => $stamp_duty_amount,
+        'retention_amount' => $retention_amount,
+        'net_amount' => $net_amount,
+        'due_date' => $due_date,
+        'invoice_date' => $invoice_date,
+        'invoice_number' => $invoice_number,
+        'status' => PaymentStatus::PENDING,
+        'notes' => $notes,
+        'requested_at' => now(),
+    ]);
+}
+
     public function createManual(array $data): Payment
     {
         return DB::transaction(function () use ($data) {
