@@ -14,7 +14,7 @@ class EntityDocumentResource extends JsonResource
         return [
             'id' => $this->id,
             'document_type' => $this->document_type,
-            'title' => $this->title ?? $this->document_type,
+            'title' => $this->file_name, // ← Usar file_name como title
             'file_name' => $this->file_name,
             'file_size' => $this->file_size,
             'mime_type' => $this->mime_type,

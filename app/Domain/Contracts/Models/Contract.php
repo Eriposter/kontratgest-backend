@@ -51,6 +51,7 @@ class Contract extends Model
     'approved_by',
     'approved_at',
     'internal_notes',
+    'pac_need_id',
     
     // ─── NOVOS CAMPOS DE PROGRESSO ──────────────────────────
     'current_progress',              // ← ADICIONAR
@@ -208,6 +209,11 @@ class Contract extends Model
     if ($now > $end) return 100.0;
 
     return round((($now - $start) / ($end - $start)) * 100, 2);
+}
+
+public function pacNeed(): BelongsTo
+{
+    return $this->belongsTo(\App\Domain\PAC\Models\PlanNeed::class, 'pac_need_id');
 }
 
     // ─── Audit Logging ───────────────────────────────────────

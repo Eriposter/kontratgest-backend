@@ -16,7 +16,6 @@ class EntityDocument extends Model
     protected $fillable = [
         'entity_id',
         'document_type',
-        "title",
         'file_name',
         'file_path',
         'mime_type',
@@ -41,6 +40,7 @@ class EntityDocument extends Model
 
     public function getIsExpiredAttribute(): bool
     {
-        return $this->expires_at?->isPast() ?? false;
+        if (!$this->expires_at) return false;
+        return $this->expires_at->isPast();
     }
 }

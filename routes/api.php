@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\V1\DocumentUploadController;
 use App\Http\Controllers\Api\V1\ContractDocumentController;
 use App\Http\Controllers\Api\V1\ContractProgressController;
 use App\Http\Controllers\Api\V1\SettingsController;
+use App\Http\Controllers\Api\V1\PACController;
 
 
 
@@ -86,6 +87,22 @@ Route::prefix('v1')
         // ─── Dashboard ──────────────────────────────────────────────
         Route::get('/dashboard/overview', [DashboardController::class, 'overview'])
             ->name('dashboard.overview');
+
+
+// ─── Planos Anuais de Contratação ───────────────────────────
+Route::apiResource('pacs', PACController::class);
+Route::prefix('pacs/{pac}')->group(function () {
+    Route::post('submit', [PACController::class, 'submit']);
+    Route::post('approve', [PACController::class, 'approve']);
+    Route::post('cancel', [PACController::class, 'cancel']);
+    Route::post('pacs/needs/{need}/generate-contract', [PACController::class, 'generateContract']);
+    Route::get('pacs/available-needs', [PACController::class, 'getAvailableNeeds']);
+    
+    // Necessidades
+    Route::post('needs', [PACController::class, 'addNeed']);
+    Route::put('needs/{need}', [PACController::class, 'updateNeed']);
+    Route::delete('needs/{need}', [PACController::class, 'deleteNeed']);
+});
 
         // ─── Entidades ──────────────────────────────────────────────
         Route::controller(EntityController::class)

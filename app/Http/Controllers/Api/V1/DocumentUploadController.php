@@ -21,7 +21,7 @@ use Illuminate\Support\Str;
 
 class DocumentUploadController extends Controller
 {
-    /**
+        /**
      * POST /api/v1/entities/{entity}/documents/upload
      */
     public function uploadEntityDocument(Request $request, Entity $entity): JsonResponse
@@ -29,11 +29,10 @@ class DocumentUploadController extends Controller
         $this->authorize('update', $entity);
 
         $request->validate([
-            'document' => 'required|file|max:10240', // 10MB
+            'document' => 'required|file|max:10240',
             'document_type' => 'required|in:agt_certificate,inss_certificate,commercial_registration,id_document,power_of_attorney,other',
-            'title' => 'nullable|string|max:255',
             'issued_at' => 'nullable|date',
-            'expires_at' => 'nullable|date|after:issued_at',
+            'expires_at' => 'nullable|date|after_or_equal:issued_at',
         ]);
 
         $file = $request->file('document');
@@ -42,7 +41,6 @@ class DocumentUploadController extends Controller
         $document = EntityDocument::create([
             'entity_id' => $entity->id,
             'document_type' => $request->document_type,
-            'title' => $request->title ?? $file->getClientOriginalName(),
             'file_name' => $file->getClientOriginalName(),
             'file_path' => $path,
             'mime_type' => $file->getMimeType(),
@@ -53,9 +51,9 @@ class DocumentUploadController extends Controller
             'uploaded_by' => auth()->id(),
         ]);
 
-        return (new EntityDocumentResource($document))
-            ->response()
-            ->setStatusCode(201);
+        return response()->json([
+            'data' => new \App\Http\Resources\EntityDocumentResource($document)
+        ], 201);
     }
 
     /**
