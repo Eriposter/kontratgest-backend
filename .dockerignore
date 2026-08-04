@@ -17,10 +17,8 @@ Thumbs.db
 .git/
 .gitignore
 
-# Docker (evitar loops)
+# Docker
 docker-compose.yml
-Dockerfile
-.docker/
 
 # Tests
 tests/
