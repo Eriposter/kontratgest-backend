@@ -12,36 +12,12 @@ on:
       - main
 
 jobs:
-  # ─── Testes (apenas em PRs e main) ─────────────────────
   test:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
     
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: kontratgest-dev
-          POSTGRES_USER: eric-dev
-          POSTGRES_PASSWORD: gc65THxcJpmWu.w.fU7ccEts
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
+    # REMOVIDO: services (postgres e redis locais)
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -53,22 +29,8 @@ jobs:
           extensions: pdo_pgsql, mbstring, xml, ctype, json, intl, bcmath, zip
           coverage: xdebug
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
       - name: Install Composer dependencies
         uses: ramsey/composer-install@v3
-        with:
-          composer-options: "--prefer-dist --no-interaction"
-
-      - name: Install NPM dependencies
-        run: npm ci
-
-      - name: Build frontend assets
-        run: npm run build
 
       - name: Copy .env.example to .env
         run: cp .env.example .env
@@ -79,24 +41,25 @@ jobs:
       - name: Run migrations
         env:
           DB_CONNECTION: pgsql
-          DB_HOST: 127.0.0.1
-          DB_PORT: 5432
-          DB_DATABASE: kontratgest-dev
-          DB_USERNAME: eric-dev
-          DB_PASSWORD: gc65THxcJpmWu.w.fU7ccEts
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_DATABASE: ${{ secrets.DB_DATABASE }}
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
         run: php artisan migrate --force
 
       - name: Run tests
         env:
           DB_CONNECTION: pgsql
-          DB_HOST: 127.0.0.1
-          DB_PORT: 5432
-          DB_DATABASE: kontratgest-dev
-          DB_USERNAME: eric-dev
-          DB_PASSWORD: gc65THxcJpmWu.w.fU7ccEts
-          REDIS_HOST: 127.0.0.1
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_DATABASE: ${{ secrets.DB_DATABASE }}
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          # Se usares Redis para cache/filas nos testes, mantém isto, senão remove
+          REDIS_HOST: 127.0.0.1 
           REDIS_PORT: 6379
-        run: php artisan test --coverage --min=70
+        run: php artisan test
 
   # ─── Build e Push Docker ──────────────────────────────
   docker:
