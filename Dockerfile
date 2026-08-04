@@ -21,8 +21,7 @@ RUN apt-get update && apt-get install -y \
     libxml2-dev \
     libzip-dev \
     libicu-dev \
-    nodejs \
-    npm \
+    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
 
@@ -33,14 +32,16 @@ RUN docker-php-ext-configure gd \
 
 
 # Extensões PHP
-RUN docker-php-ext-install pdo_pgsql
-RUN docker-php-ext-install mbstring
-RUN docker-php-ext-install exif
-RUN docker-php-ext-install pcntl
-RUN docker-php-ext-install bcmath
-RUN docker-php-ext-install gd
-RUN docker-php-ext-install zip
-RUN docker-php-ext-install intl
+RUN docker-php-ext-install \
+    pdo_mysql \
+    pdo_pgsql \
+    mbstring \
+    exif \
+    pcntl \
+    bcmath \
+    gd \
+    zip \
+    intl
 
 
 # Composer
