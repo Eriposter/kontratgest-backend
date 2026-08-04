@@ -212,33 +212,41 @@ class PaymentService
     /**
      * Marcar pagamento como pago.
      */
-    public function markAsPaid(
-        Payment $payment,
-        string $bankReference,
-        string $paymentMethod,
-        ?string $paymentDate = null,
-    ): Payment {
-        if (!$payment->can_be_paid) {
-            throw new \InvalidArgumentException('Pagamento não pode ser marcado como pago neste estado.');
-        }
-
-        $payment->update([
-            'status' => 'paid',
-            'payment_date' => $paymentDate ?? now(),
-            'bank_reference' => $bankReference,
-            'payment_method' => $paymentMethod,
-        ]);
-
-        // Atualizar schedule se existir
-        if ($payment->payment_schedule_id) {
-            $payment->schedule->update([
-                'status' => 'paid',
-                'paid_at' => $payment->payment_date,
-            ]);
-        }
-
-        return $payment;
+    /**
+ * Marcar pagamento como pago (com sincronização Auto de Medição)
+ */
+public function markAsPaid(
+    Payment $payment,
+    string $bankReference,
+    string $paymentMethod,
+    ?string $paymentDate = null,
+): Payment {
+    if (!$payment->can_be_paid) {
+        throw new \InvalidArgumentException('Pagamento não pode ser marcado como pago neste estado.');
     }
+
+    $payment->update([
+        'status' => 'paid',
+        'payment_date' => $paymentDate ?? now(),
+        'bank_reference' => $bankReference,
+        'payment_method' => $paymentMethod,
+    ]);
+
+    // Atualizar schedule se existir
+    if ($payment->payment_schedule_id) {
+        $payment->schedule->update([
+            'status' => 'paid',
+            'paid_at' => $payment->payment_date,
+        ]);
+    }
+
+    // 🔥 SINCRONIZAR COM AUTO DE MEDIÇÃO
+    if ($payment->measurement_id) {
+        $this->measurementService->markAsPaid($payment->measurement, $payment->id);
+    }
+
+    return $payment;
+}
 
     /**
      * Rejeitar pagamento.

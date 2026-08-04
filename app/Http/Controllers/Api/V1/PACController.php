@@ -31,10 +31,14 @@ class PACController extends Controller
     }
 
     public function show(string $id): AnnualContractPlanResource
-    {
-        $plan = $this->pacService->find($id);
-        return new AnnualContractPlanResource($plan);
-    }
+{
+    $plan = $this->pacService->find($id);
+    
+    // Carregar contratos das necessidades
+    $plan->load(['needs.contract']);
+    
+    return new AnnualContractPlanResource($plan);
+}
 
     public function store(Request $request): AnnualContractPlanResource
     {

@@ -1,0 +1,31 @@
+# Dependências
+vendor/
+node_modules/
+
+# Logs e cache
+storage/logs/*.log
+bootstrap/cache/*.php
+
+# IDE e OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Docker (evitar loops)
+docker-compose.yml
+Dockerfile
+.docker/
+
+# Tests
+tests/
+phpunit.xml
+
+# Documentation
+docs/
+README.md

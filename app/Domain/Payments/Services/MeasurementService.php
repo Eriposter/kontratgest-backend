@@ -179,18 +179,18 @@ class MeasurementService
     }
 
     /**
-     * Marcar como pago (quando pagamento é processado).
-     */
-    public function markAsPaid(Measurement $measurement, string $paymentId): Measurement
-    {
-        $measurement->update([
-            'status' => 'paid',
-            'payment_id' => $paymentId,
-            'paid_at' => now(),
-        ]);
+ * Marcar auto de medição como pago
+ */
+public function markAsPaid(Measurement $measurement, string $paymentId): Measurement
+{
+    $measurement->update([
+        'status' => 'paid',
+        'payment_id' => $paymentId,
+        'paid_at' => now(),
+    ]);
 
-        return $measurement;
-    }
+    return $measurement;
+}
 
     /**
      * Obter autos pendentes de aprovação.

@@ -147,71 +147,95 @@ class ContractService
         return $contract;
     }
 
-    /**
-     * Aprovar contrato.
-     */
+    private function syncPACNeedStatus(Contract $contract): void
+    {
+        if (!$contract->pac_need_id) return;
+
+        $need = PlanNeed::find($contract->pac_need_id);
+        if (!$need) return;
+
+        // Mapear estado do contrato para estado da necessidade
+        $statusMap = [
+            'draft' => 'contracted',
+            'pending_approval' => 'contracted',
+            'approved' => 'contracted',
+            'active' => 'contracted',
+            'suspended' => 'suspended',
+            'terminated' => 'cancelled',
+            'expired' => 'completed',
+        ];
+
+        $newNeedStatus = $statusMap[$contract->status] ?? 'contracted';
+
+        $need->update([
+            'status' => $newNeedStatus,
+            'executed_amount' => $contract->total_amount,
+        ]);
+
+        // Recalcular totais do PAC
+        $plan = $need->plan;
+        $plan->update([
+            'total_executed_amount' => $plan->needs()
+                ->whereNotNull('executed_amount')
+                ->sum('executed_amount'),
+        ]);
+    }
+
     public function approve(Contract $contract, string $approvedBy): Contract
     {
-        if (!$contract->status->canTransitionTo(ContractStatus::APPROVED)) {
-            throw new \InvalidArgumentException('Contrato não pode ser aprovado neste estado.');
-        }
-
         $contract->update([
-            'status' => ContractStatus::APPROVED,
+            'status' => 'approved',
             'approved_by' => $approvedBy,
             'approved_at' => now(),
         ]);
 
+        // Sincronizar com PAC
+        $this->syncPACNeedStatus($contract);
+
         return $contract;
     }
 
     /**
-     * Ativar contrato (após assinatura).
+     * Ativar contrato (com sincronização PAC)
      */
     public function activate(Contract $contract): Contract
     {
-        if (!$contract->status->canTransitionTo(ContractStatus::ACTIVE)) {
-            throw new \InvalidArgumentException('Contrato não pode ser ativado neste estado.');
-        }
-
         $contract->update([
-            'status' => ContractStatus::ACTIVE,
-            'signature_date' => $contract->signature_date ?? now(),
+            'status' => 'active',
         ]);
+
+        // Sincronizar com PAC
+        $this->syncPACNeedStatus($contract);
 
         return $contract;
     }
 
     /**
-     * Suspender contrato.
+     * Suspender contrato (com sincronização PAC)
      */
-    public function suspend(Contract $contract, string $reason = ''): Contract
+    public function suspend(Contract $contract, string $reason): Contract
     {
-        if (!$contract->status->canTransitionTo(ContractStatus::SUSPENDED)) {
-            throw new \InvalidArgumentException('Contrato não pode ser suspenso neste estado.');
-        }
-
         $contract->update([
-            'status' => ContractStatus::SUSPENDED,
-            'internal_notes' => trim($contract->internal_notes . "\n[Suspenso em " . now()->format('d/m/Y') . "] {$reason}"),
+            'status' => 'suspended',
         ]);
+
+        // Sincronizar com PAC
+        $this->syncPACNeedStatus($contract);
 
         return $contract;
     }
 
     /**
-     * Rescindir contrato.
+     * Rescindir contrato (com sincronização PAC)
      */
     public function terminate(Contract $contract, string $reason): Contract
     {
-        if (!$contract->status->canTransitionTo(ContractStatus::TERMINATED)) {
-            throw new \InvalidArgumentException('Contrato não pode ser rescindido neste estado.');
-        }
-
         $contract->update([
-            'status' => ContractStatus::TERMINATED,
-            'internal_notes' => trim($contract->internal_notes . "\n[Rescindido em " . now()->format('d/m/Y') . "] {$reason}"),
+            'status' => 'terminated',
         ]);
+
+        // Sincronizar com PAC
+        $this->syncPACNeedStatus($contract);
 
         return $contract;
     }
