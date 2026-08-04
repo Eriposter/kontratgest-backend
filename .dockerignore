@@ -2,28 +2,30 @@
 vendor/
 node_modules/
 
-# Logs e cache
-storage/logs/*.log
-bootstrap/cache/*.php
+# Laravel runtime
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
 
-# IDE e OS
+# IDE
 .vscode/
 .idea/
 *.swp
+
+# Sistema
 .DS_Store
 Thumbs.db
 
 # Git
 .git/
-.gitignore
 
 # Docker
 docker-compose.yml
 
-# Tests
+# Testes
 tests/
-phpunit.xml
 
-# Documentation
+# Documentação
 docs/
 README.md
