@@ -172,14 +172,7 @@ HEALTHCHECK \
 
 
 # Entrada
-ENTRYPOINT [
-    "/usr/local/bin/entrypoint.sh"
-]
+# Entrada
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
-
-CMD [
-    "supervisord",
-    "-n",
-    "-c",
-    "/etc/supervisor/conf.d/supervisord.conf"
-]
+CMD ["supervisord", "-n", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
