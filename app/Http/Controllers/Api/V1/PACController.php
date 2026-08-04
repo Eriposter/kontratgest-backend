@@ -13,7 +13,6 @@ use App\Http\Resources\PlanNeedResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use App\Http\Resources\ContractResource;
 
 class PACController extends Controller
 {
@@ -130,56 +129,67 @@ class PACController extends Controller
         return response()->json(null, 204);
     }
 
-    
-
-public function generateContract(Request $request, string $needId): ContractResource
+        public function generateContract(PlanNeed $need, Request $request): JsonResponse
 {
-    $need = PlanNeed::findOrFail($needId);
-
     $validated = $request->validate([
         'title' => 'required|string|max:255',
-        'object' => 'required|string',
+        'object' => 'nullable|string',
+        'contract_type' => 'required|string',
         'counterparty_id' => 'required|uuid|exists:entities,id',
-        'contract_type_id' => 'required|uuid|exists:contract_types,id',
         'total_amount' => 'required|numeric|min:0',
         'start_date' => 'required|date',
         'end_date' => 'required|date|after:start_date',
+        'signature_date' => 'nullable|date',
         'vat_rate' => 'nullable|numeric|min:0|max:100',
         'withholding_tax_rate' => 'nullable|numeric|min:0|max:100',
+        'payment_model' => 'nullable|string|in:single,installment,measurement,consignment,milestone',
+        'notes' => 'nullable|string',
     ]);
+
+    // 🔥 GARANTIR QUE PAYMENT_MODEL TEM VALOR PADRÃO
+    if (empty($validated['payment_model'])) {
+        $validated['payment_model'] = 'single';
+    }
 
     $contract = $this->pacService->generateContract($need, $validated);
 
-    return new ContractResource($contract);
-}
-public function getAvailableNeeds(): JsonResponse
-{
-    $needs = PlanNeed::whereHas('plan', function ($query) {
-        $query->where('company_id', current_company()->id)
-              ->where('status', 'approved');
-    })
-    ->where('status', 'planned')
-    ->whereNull('contract_id')
-    ->with('plan')
-    ->get();
-
     return response()->json([
-        'data' => $needs->map(function ($need) {
-            return [
-                'id' => $need->id,
-                'title' => $need->title,
-                'description' => $need->description,
-                'estimated_amount' => (float) $need->estimated_amount,
-                'contract_type' => $need->contract_type,
-                'contract_type_label' => $need->contract_type_label,
-                'procedure_type' => $need->procedure_type,
-                'procedure_type_label' => $need->procedure_type_label,
-                'priority' => $need->priority,
-                'priority_label' => $need->priority_label,
-                'plan_year' => $need->plan->year,
-                'plan_title' => $need->plan->title,
-            ];
-        })
-    ]);
+        'data' => [
+            'id' => $contract->id,
+            'contract_number' => $contract->contract_number,
+            'title' => $contract->title,
+        ]
+    ], 201);
 }
-} 
+
+    public function getAvailableNeeds(): JsonResponse
+    {
+        $needs = PlanNeed::whereHas('plan', function ($query) {
+            $query->where('company_id', current_company()->id)
+                  ->where('status', 'approved');
+        })
+        ->where('status', 'planned')
+        ->whereNull('contract_id')
+        ->with('plan')
+        ->get();
+
+        return response()->json([
+            'data' => $needs->map(function ($need) {
+                return [
+                    'id' => $need->id,
+                    'title' => $need->title,
+                    'description' => $need->description,
+                    'estimated_amount' => (float) $need->estimated_amount,
+                    'contract_type' => $need->contract_type,
+                    'contract_type_label' => $need->contract_type_label,
+                    'procedure_type' => $need->procedure_type,
+                    'procedure_type_label' => $need->procedure_type_label,
+                    'priority' => $need->priority,
+                    'priority_label' => $need->priority_label,
+                    'plan_year' => $need->plan->year,
+                    'plan_title' => $need->plan->title,
+                ];
+            })
+        ]);
+    }
+}

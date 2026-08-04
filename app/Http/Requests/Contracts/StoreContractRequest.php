@@ -41,7 +41,7 @@ class StoreContractRequest extends FormRequest
             'duration_months' => ['nullable', 'integer', 'min:1'],
             
             // Pagamento
-            'payment_model' => ['required', Rule::enum(PaymentModel::class)],
+            'payment_model' => 'required|in:single,installment,measurement,consignment,milestone',
             
             // Compliance
             'requires_bna_registration' => ['boolean'],

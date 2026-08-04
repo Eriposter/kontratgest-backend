@@ -37,76 +37,91 @@ class MeasurementService
         return $query->paginate($perPage);
     }
 
-    /**
-     * Criar novo auto de medição.
+        /**
+     * Criar novo auto de medição (Versão Blindada contra erros NOT NULL)
      */
     public function create(array $data): Measurement
     {
-        return DB::transaction(function () use ($data) {
-            $contract = Contract::findOrFail($data['contract_id']);
+        // 1. Extrair os itens dos dados
+        $items = $data['items'] ?? [];
+        unset($data['items']); // ← REMOVE para evitar MassAssignmentException
 
-            // Gerar número automático
-            if (empty($data['measurement_number'])) {
-                $data['measurement_number'] = $this->generateMeasurementNumber($contract);
+        // 2. Obter o contrato para cálculos de sequência
+        $contract = \App\Domain\Contracts\Models\Contract::findOrFail($data['contract_id']);
+
+        // 3. Gerar sequência e número da medição
+        $data['sequence_number'] = Measurement::where('contract_id', $contract->id)->count() + 1;
+        
+        $year = date('Y');
+        $month = date('m');
+        $count = Measurement::whereYear('created_at', $year)
+                           ->whereMonth('created_at', $month)
+                           ->count() + 1;
+        $data['measurement_number'] = "AM/{$year}/{$month}/" . str_pad((string) $count, 3, '0', STR_PAD_LEFT);
+
+        // 4. 🔥 CÁLCULOS FINANCEIROS OBRIGATÓRIOS (Resolve os erros NOT NULL)
+        $totalAmount = (float) ($data['total_amount'] ?? 0);
+        $retentionPercentage = (float) ($data['retention_percentage'] ?? 0);
+
+        // Calcula o valor da retenção
+        $data['retention_amount'] = $totalAmount * ($retentionPercentage / 100);
+
+        // Calcula o valor acumulado (Soma dos autos anteriores deste contrato + o atual)
+        $previousTotal = Measurement::where('contract_id', $contract->id)->sum('total_amount');
+        $data['cumulative_amount'] = $previousTotal + $totalAmount;
+
+        // 5. Definir valores padrão de sistema
+        $data['company_id'] = current_company()->id;
+        $data['created_by'] = auth()->id();
+        $data['status'] = $data['status'] ?? 'draft';
+
+        // 6. Criar a medição (Agora com TODOS os campos NOT NULL preenchidos)
+        $measurement = Measurement::create($data);
+
+        // 7. Criar os itens associados
+        if (!empty($items)) {
+            foreach ($items as $item) {
+                $measurement->items()->create([
+                    'item_code' => $item['item_code'] ?? '',
+                    'description' => $item['description'],
+                    'unit' => $item['unit'] ?? 'un',
+                    'quantity' => (float) $item['quantity'],
+                    'unit_price' => (float) $item['unit_price'],
+                    'total_amount' => (float) $item['quantity'] * (float) $item['unit_price'],
+                ]);
             }
+        }
 
-            // Calcular sequência
-            $data['sequence_number'] = Measurement::where('contract_id', $contract->id)->count() + 1;
-
-            // Calcular acumulado
-            $previousCumulative = Measurement::where('contract_id', $contract->id)
-                ->approved()
-                ->sum('total_amount');
-
-            $data['cumulative_amount'] = $previousCumulative + $data['total_amount'];
-
-            // Calcular retenção
-            if (isset($data['retention_percentage']) && $data['retention_percentage'] > 0) {
-                $data['retention_amount'] = $data['total_amount'] * ($data['retention_percentage'] / 100);
-            }
-
-            $measurement = Measurement::create($data);
-
-            // Criar itens
-            if (!empty($data['items'])) {
-                $this->createItems($measurement, $data['items']);
-            }
-
-            return $measurement->load(['contract.counterparty', 'items']);
-        });
+        return $measurement->load('items', 'contract');
     }
 
-    /**
-     * Atualizar auto de medição.
-     */
     public function update(Measurement $measurement, array $data): Measurement
     {
-        return DB::transaction(function () use ($measurement, $data) {
-            // Recalcular total se itens foram alterados
-            if (isset($data['items'])) {
+        // 1. Extrair os itens
+        $items = $data['items'] ?? null;
+        unset($data['items']); // ← REMOVE
+
+        // 2. Atualizar os dados principais da medição
+        $measurement->update($data);
+
+        // 3. Sincronizar os itens
+        if ($items !== null) {
+            DB::transaction(function () use ($measurement, $items) {
                 $measurement->items()->delete();
-                $this->createItems($measurement, $data['items']);
                 
-                $data['total_amount'] = $measurement->items()->sum('total_amount');
-            }
+                foreach ($items as $item) {
+                    $measurement->items()->create([
+                        'item_code' => $item['item_code'] ?? '',
+                        'description' => $item['description'],
+                        'unit' => $item['unit'] ?? 'un',
+                        'quantity' => $item['quantity'],
+                        'unit_price' => $item['unit_price'],
+                    ]);
+                }
+            });
+        }
 
-            // Recalcular acumulado
-            $previousCumulative = Measurement::where('contract_id', $measurement->contract_id)
-                ->where('sequence_number', '<', $measurement->sequence_number)
-                ->approved()
-                ->sum('total_amount');
-
-            $data['cumulative_amount'] = $previousCumulative + $data['total_amount'];
-
-            // Recalcular retenção
-            if (isset($data['retention_percentage'])) {
-                $data['retention_amount'] = $data['total_amount'] * ($data['retention_percentage'] / 100);
-            }
-
-            $measurement->update($data);
-
-            return $measurement->fresh(['contract.counterparty', 'items']);
-        });
+        return $measurement->fresh()->load('items', 'contract');
     }
 
     /**

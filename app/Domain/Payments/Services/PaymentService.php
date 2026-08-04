@@ -8,6 +8,7 @@ use App\Domain\Contracts\Models\Contract;
 use App\Domain\Entities\Models\Entity;
 use App\Domain\Payments\Models\Measurement;
 use App\Domain\Payments\Models\Payment;
+use App\Support\Enums\PaymentStatus;
 use App\Domain\Tax\Services\TaxCalculationService;
 use App\Support\Enums\Currency;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -101,7 +102,7 @@ class PaymentService
 
     public function create(
     string $contract_id,
-    ?string $measurement_id,  // ← ADICIONAR
+    ?string $measurement_id,
     string $payment_type,
     float $gross_amount,
     float $vat_rate,
@@ -111,10 +112,10 @@ class PaymentService
     ?string $due_date = null,
     ?string $invoice_date = null,
     ?string $invoice_number = null,
-    ?string $notes = null
+    ?string $payment_notes = null
 ): Payment {
     $contract = Contract::findOrFail($contract_id);
-    
+
     // Calcular valores
     $vat_amount = $gross_amount * ($vat_rate / 100);
     $withholding_amount = $gross_amount * ($withholding_tax_rate / 100);
@@ -124,7 +125,7 @@ class PaymentService
     return Payment::create([
         'company_id' => $contract->company_id,
         'contract_id' => $contract_id,
-        'measurement_id' => $measurement_id,  // ← ADICIONAR
+        'measurement_id' => $measurement_id,
         'payment_number' => $this->generatePaymentNumber(),
         'payment_type' => $payment_type,
         'currency' => $contract->currency,
@@ -141,7 +142,7 @@ class PaymentService
         'invoice_date' => $invoice_date,
         'invoice_number' => $invoice_number,
         'status' => PaymentStatus::PENDING,
-        'notes' => $notes,
+        'payment_notes' => $payment_notes,
         'requested_at' => now(),
     ]);
 }
@@ -242,7 +243,7 @@ class PaymentService
     /**
      * Rejeitar pagamento.
      */
-    public function reject(Payment $payment, string $notes): Payment
+    public function reject(Payment $payment, string $payment_notes): Payment
     {
         if ($payment->status !== 'pending') {
             throw new \InvalidArgumentException('Apenas pagamentos pendentes podem ser rejeitados.');
@@ -250,7 +251,7 @@ class PaymentService
 
         $payment->update([
             'status' => 'rejected',
-            'payment_notes' => trim($payment->payment_notes . "\n[Rejeitado] {$notes}"),
+            'payment_notes' => trim($payment->payment_notes . "\n[Rejeitado] {$payment_notes}"),
         ]);
 
         return $payment;

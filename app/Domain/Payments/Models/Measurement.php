@@ -13,6 +13,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
+use App\Models\User;
+
 
 class Measurement extends Model
 {
@@ -30,6 +32,7 @@ class Measurement extends Model
         'retention_percentage',
         'retention_amount',
         'status',
+        'created_by',
         'observations',
         'submitted_by',
         'submitted_at',
@@ -68,6 +71,11 @@ class Measurement extends Model
     public function payment(): BelongsTo
     {
         return $this->belongsTo(Payment::class);
+    }
+
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     // ─── Scopes ──────────────────────────────────────────────

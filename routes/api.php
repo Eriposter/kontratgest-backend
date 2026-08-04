@@ -17,6 +17,8 @@ use App\Http\Controllers\Api\V1\ContractDocumentController;
 use App\Http\Controllers\Api\V1\ContractProgressController;
 use App\Http\Controllers\Api\V1\SettingsController;
 use App\Http\Controllers\Api\V1\PACController;
+use App\Http\Controllers\Api\V1\GuaranteeDocumentController; 
+
 
 
 
@@ -89,20 +91,29 @@ Route::prefix('v1')
             ->name('dashboard.overview');
 
 
-// ─── Planos Anuais de Contratação ───────────────────────────
-Route::apiResource('pacs', PACController::class);
-Route::prefix('pacs/{pac}')->group(function () {
-    Route::post('submit', [PACController::class, 'submit']);
-    Route::post('approve', [PACController::class, 'approve']);
-    Route::post('cancel', [PACController::class, 'cancel']);
-    Route::post('pacs/needs/{need}/generate-contract', [PACController::class, 'generateContract']);
-    Route::get('pacs/available-needs', [PACController::class, 'getAvailableNeeds']);
-    
-    // Necessidades
-    Route::post('needs', [PACController::class, 'addNeed']);
-    Route::put('needs/{need}', [PACController::class, 'updateNeed']);
-    Route::delete('needs/{need}', [PACController::class, 'deleteNeed']);
-});
+        // ── Planos Anuais de Contratação ───────────────────────────
+
+        // 1️ Rotas personalizadas (ANTES do apiResource)
+        Route::get('pacs/available-needs', [PACController::class, 'getAvailableNeeds'])
+            ->name('pacs.available-needs');
+
+        Route::post('pacs/needs/{need}/generate-contract', [PACController::class, 'generateContract'])
+            ->name('pacs.needs.generate-contract');
+
+        // 2️⃣ apiResource (gera: index, store, show, update, destroy)
+        Route::apiResource('pacs', PACController::class);
+
+        // 3️⃣ Rotas com prefixo {pac} (submit, approve, cancel, needs)
+        Route::prefix('pacs/{pac}')->group(function () {
+            Route::post('submit', [PACController::class, 'submit'])->name('pacs.submit');
+            Route::post('approve', [PACController::class, 'approve'])->name('pacs.approve');
+            Route::post('cancel', [PACController::class, 'cancel'])->name('pacs.cancel');
+
+            // Necessidades
+            Route::post('needs', [PACController::class, 'addNeed'])->name('pacs.needs.add');
+            Route::put('needs/{need}', [PACController::class, 'updateNeed'])->name('pacs.needs.update');
+            Route::delete('needs/{need}', [PACController::class, 'deleteNeed'])->name('pacs.needs.delete');
+        });
 
         // ─── Entidades ──────────────────────────────────────────────
         Route::controller(EntityController::class)
@@ -193,6 +204,12 @@ Route::prefix('pacs/{pac}')->group(function () {
             Route::post('/{guarantee}/cancel', 'cancel')->name('cancel');
         });
 
+        Route::prefix('guarantees/{guarantee}/documents')->group(function () {
+    Route::get('/', [GuaranteeDocumentController::class, 'index'])->name('guarantees.documents.index');
+    Route::post('/', [GuaranteeDocumentController::class, 'store'])->name('guarantees.documents.store');
+    Route::delete('/{document}', [GuaranteeDocumentController::class, 'destroy'])->name('guarantees.documents.destroy');
+});
+
         // Measurements
         Route::controller(MeasurementController::class)->prefix('measurements')->name('measurements.')->group(function () {
             Route::get('/', 'index')->name('index');
@@ -256,7 +273,7 @@ Route::prefix('pacs/{pac}')->group(function () {
                 Route::get('/roles', 'getRoles')->name('roles.index');
                 Route::put('/roles/{id}', 'updateRole')->name('roles.update');
                 Route::post('/', 'storeRole')->name('roles.store');
-Route::delete('/{id}', 'destroyRole')->name('roles.destroy');
+                Route::delete('/{id}', 'destroyRole')->name('roles.destroy');
             });
         });
     });

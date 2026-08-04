@@ -8,6 +8,8 @@ use App\Domain\Contracts\Models\Contract;
 use App\Domain\PAC\Models\AnnualContractPlan;
 use App\Domain\PAC\Models\PlanNeed;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
+use App\Domain\Contracts\Models\ContractType;
 
 class PACService
 {
@@ -103,28 +105,95 @@ class PACService
         $this->recalculateTotals($plan);
     }
 
-    public function generateContract(PlanNeed $need, array $contractData): Contract
-    {
-        // Criar contrato a partir da necessidade
-        $contract = Contract::create(array_merge($contractData, [
-            'company_id' => current_company()->id,
-            'status' => 'draft',
-            'pac_need_id' => $need->id,
-        ]));
-
-        // Atualizar necessidade
-        $need->update([
-            'contract_id' => $contract->id,
-            'executed_amount' => $contract->total_amount,
-            'status' => 'contracted',
-            'pac_need_id' => $need->id,
-        ]);
-
-        // Recalcular totais do PAC
-        $this->recalculateTotals($need->plan);
-
-        return $contract;
+    public function generateContract(PlanNeed $need, array $data): Contract
+{
+    // Buscar o tipo de contrato
+    $contractType = ContractType::where('code', $data['contract_type'])->first();
+    
+    if (!$contractType) {
+        throw new \Exception("Tipo de contrato '{$data['contract_type']}' não encontrado");
     }
+
+    // 🔥 OBTER COMPANY_ID DE FORMA SEGURA
+    $user = auth()->user();
+    $companyId = $user->company_id ?? null;
+    
+    // Se o utilizador não tiver company_id, tentar obter da empresa atual
+    if (!$companyId && function_exists('current_company')) {
+        $companyId = current_company()->id ?? null;
+    }
+
+    // Garantir que payment_model tem valor
+    $paymentModel = $data['payment_model'] ?? 'single';
+
+    // Criar o contrato
+    $contractData = [
+        'pac_need_id' => $need->id,
+        'contract_number' => $this->generateContractNumber(),
+        'contract_type_id' => $contractType->id,
+        'contract_type_specification' => $data['contract_type_specification'] ?? null,
+        'title' => $data['title'],
+        'object' => $data['object'] ?? $data['title'],
+        'counterparty_id' => $data['counterparty_id'],
+        'total_amount' => $data['total_amount'],
+        'start_date' => $data['start_date'],
+        'end_date' => $data['end_date'],
+        'signature_date' => $data['signature_date'] ?? null,
+        'vat_rate' => $data['vat_rate'] ?? 14,
+        'withholding_tax_rate' => $data['withholding_tax_rate'] ?? 2,
+        'payment_model' => $paymentModel,
+        'currency' => 'AOA',
+        'status' => 'draft',
+        'internal_notes' => $data['notes'] ?? null,
+        'current_progress' => 0,
+    ];
+
+    // Só adicionar company_id se existir
+    if ($companyId) {
+        $contractData['company_id'] = $companyId;
+    }
+
+    $contract = Contract::create($contractData);
+
+    // Atualizar a necessidade do PAC
+    $need->update([
+        'status' => 'contracted',
+        'executed_amount' => $data['total_amount'],
+        'contract_id' => $contract->id,
+    ]);
+
+    // Atualizar o PAC
+    if (method_exists($need->plan, 'updateFinancials')) {
+        $need->plan->updateFinancials();
+    }
+
+    return $contract;
+}
+
+private function generateContractNumber(): string
+{
+    $year = date('Y');
+    
+    // Buscar o último contrato do ano
+    $lastContract = Contract::whereYear('created_at', $year)
+        ->orderBy('created_at', 'desc')
+        ->first();
+    
+    if ($lastContract) {
+        // Extrair o número do final do contract_number
+        // Ex: CT/2026/0005 -> 5
+        $parts = explode('/', $lastContract->contract_number);
+        $lastNumber = (int) end($parts);
+        $newNumber = $lastNumber + 1;
+    } else {
+        $newNumber = 1;
+    }
+    
+    // 🔥 CONVERTER PARA STRING ANTES DO STR_PAD
+    $formattedNumber = str_pad((string) $newNumber, 4, '0', STR_PAD_LEFT);
+    
+    return "CT/{$year}/{$formattedNumber}";
+}
 
     private function recalculateTotals(AnnualContractPlan $plan): void
     {
@@ -133,4 +202,4 @@ class PACService
             'total_executed_amount' => $plan->needs()->whereNotNull('executed_amount')->sum('executed_amount'),
         ]);
     }
-} 
+}

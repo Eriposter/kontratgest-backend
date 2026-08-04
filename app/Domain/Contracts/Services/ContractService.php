@@ -58,48 +58,77 @@ class ContractService
      * Criar novo contrato.
      */
     public function create(array $data): Contract
-    {
-        return DB::transaction(function () use ($data) {
-            // Gerar número de contrato automático
-            if (empty($data['contract_number'])) {
-                $data['contract_number'] = $this->generateContractNumber($data['contract_type_id']);
-            }
+{
+    // 1. Extrair os planos de pagamento dos dados
+    $paymentSchedules = $data['payment_schedules'] ?? [];
+    unset($data['payment_schedules']); // ← REMOVE do array para evitar MassAssignmentException
 
-            // Calcular taxa de câmbio se necessário
-            if (isset($data['currency']) && $data['currency'] !== Currency::AOA) {
-                $data['requires_bna_registration'] = true;
-                // Aqui podes integrar com API do BNA para taxa oficial
-                // $data['exchange_rate'] = $this->getBnaExchangeRate($data['currency']);
-            }
+    // 2. Definir valores padrão
+    $data['created_by'] = auth()->id();
+    $data['company_id'] = current_company()->id;
+    
+    // Define o status inicial (ajusta conforme o teu Enum, ex: ContractStatus::DRAFT)
+    $data['status'] = \App\Support\Enums\ContractStatus::DRAFT; 
 
-            $contract = Contract::create($data);
-
-            // Criar plano de pagamentos se fornecido
-            if (!empty($data['payment_schedules'])) {
-                $this->createPaymentSchedules($contract, $data['payment_schedules']);
-            }
-
-            return $contract->load(['type', 'counterparty', 'paymentSchedules']);
-        });
+    // 3. Gerar número do contrato automaticamente se não for enviado
+    if (empty($data['contract_number'])) {
+        $year = date('Y');
+        $count = Contract::whereYear('created_at', $year)->count() + 1;
+        $data['contract_number'] = "CT/{$year}/" . str_pad((string) $count, 4, '0', STR_PAD_LEFT);
     }
+
+    // 4. Criar o contrato (agora sem o payment_schedules, não dará erro)
+    $contract = Contract::create($data);
+
+    // 5. Criar os planos de pagamento associados
+    if (!empty($paymentSchedules)) {
+        foreach ($paymentSchedules as $index => $schedule) {
+            $contract->paymentSchedules()->create([
+                'sequence_order' => $index + 1,
+                'milestone_name' => $schedule['milestone_name'],
+                'due_date' => $schedule['due_date'] ?? null,
+                'percentage' => $schedule['percentage'] ?? 0,
+                'amount' => $schedule['amount'] ?? 0,
+                'is_conditional' => $schedule['is_conditional'] ?? false,
+                'status' => 'pending', // Ajusta ao status padrão da tua tabela payment_schedules
+            ]);
+        }
+    }
+
+    return $contract->load('paymentSchedules', 'type', 'counterparty');
+}
 
     /**
      * Atualizar contrato.
      */
     public function update(Contract $contract, array $data): Contract
-    {
-        return DB::transaction(function () use ($contract, $data) {
-            $contract->update($data);
+{
+    // 1. Extrair os planos de pagamento
+    $paymentSchedules = $data['payment_schedules'] ?? null;
+    unset($data['payment_schedules']); // ← REMOVE do array
 
-            // Atualizar plano de pagamentos se fornecido
-            if (isset($data['payment_schedules'])) {
-                $contract->paymentSchedules()->delete();
-                $this->createPaymentSchedules($contract, $data['payment_schedules']);
-            }
+    // 2. Atualizar os dados principais do contrato
+    $contract->update($data);
 
-            return $contract->fresh(['type', 'counterparty', 'paymentSchedules']);
-        });
+    // 3. Sincronizar os planos de pagamento (apaga os antigos e cria os novos)
+    if ($paymentSchedules !== null) {
+        $contract->paymentSchedules()->delete(); // Limpa os antigos
+        
+        foreach ($paymentSchedules as $index => $schedule) {
+            $contract->paymentSchedules()->create([
+                'sequence_order' => $index + 1,
+                'milestone_name' => $schedule['milestone_name'],
+                'due_date' => $schedule['due_date'] ?? null,
+                'percentage' => $schedule['percentage'] ?? 0,
+                'amount' => $schedule['amount'] ?? 0,
+                'is_conditional' => $schedule['is_conditional'] ?? false,
+                'status' => 'pending',
+            ]);
+        }
     }
+
+    return $contract->fresh()->load('paymentSchedules', 'type', 'counterparty');
+}
 
     /**
      * Submeter contrato para aprovação.

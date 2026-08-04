@@ -50,7 +50,7 @@ class PaymentController extends Controller
         due_date: $request->due_date,
         invoice_date: $request->invoice_date,
         invoice_number: $request->invoice_number,
-        notes: $request->notes
+        payment_notes: $request->payment_notes
     );
 
     return new PaymentResource($payment);
@@ -116,7 +116,7 @@ class PaymentController extends Controller
 
         $payment = $this->paymentService->reject(
             $payment,
-            $request->string('notes')->value(),
+            $request->string('payment_notes')->value(),
         );
 
         return new PaymentResource($payment);

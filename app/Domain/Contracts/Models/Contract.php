@@ -23,9 +23,11 @@ class Contract extends Model
 
     protected $fillable = [
     'contract_number',
-    'contract_type_id',
+    'contract_type_id',      // ← ADICIONAR (estava faltando)
+    'contract_type_specification',
     'counterparty_id',
     'company_id',
+    'pac_need_id',
     'title',
     'description',
     'object',
@@ -51,13 +53,8 @@ class Contract extends Model
     'approved_by',
     'approved_at',
     'internal_notes',
-    'pac_need_id',
-    
-    // ─── NOVOS CAMPOS DE PROGRESSO ──────────────────────────
-    'current_progress',              // ← ADICIONAR
-    'progress_last_updated_at',      // ← ADICIONAR
-    
-    // Campos públicos (setor público)
+    'current_progress',
+    'progress_last_updated_at',
     'procedure_id',
     'ura_id',
     'procedure_type',

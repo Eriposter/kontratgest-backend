@@ -72,9 +72,13 @@ class Guarantee extends Model
     }
 
     public function documents(): HasMany
-    {
-        return $this->hasMany(GuaranteeDocument::class);
-    }
+{
+    // Se usares um modelo específico GuaranteeDocument:
+    return $this->hasMany(GuaranteeDocument::class);
+    
+    // OU, se usares uma tabela polimórfica genérica 'documents':
+    // return $this->morphMany(Document::class, 'documentable');
+}
 
     // ─── Scopes ──────────────────────────────────────────────
 
