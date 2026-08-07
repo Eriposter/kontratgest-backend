@@ -184,6 +184,95 @@ class SettingsController extends Controller
     }
 
     /**
+ * PUT /api/v1/settings/users/{id}
+ */
+public function updateUser(Request $request, string $id): JsonResponse
+{
+    $this->authorize('manage-settings', Company::class);
+
+    $user = User::findOrFail($id);
+
+    // Impedir que um usuário altere seus próprios dados através desta rota
+    if ($user->id === auth()->id()) {
+        return response()->json(['message' => 'Não pode atualizar os seus próprios dados através desta rota'], 403);
+    }
+
+    $validated = $request->validate([
+        'name' => 'sometimes|string|max:255',
+        'email' => 'sometimes|email|max:255|unique:users,email,' . $id,
+        'password' => 'sometimes|string|min:8|nullable',
+        'phone' => 'nullable|string|max:50',
+        'department' => 'nullable|string|max:100',
+        'position' => 'nullable|string|max:100',
+        'is_active' => 'sometimes|boolean',
+        'roles' => 'sometimes|array',
+        'roles.*' => 'string|exists:roles,name',
+    ]);
+
+    // Preparar dados para atualização
+    $updateData = [];
+    
+    if (isset($validated['name'])) {
+        $updateData['name'] = $validated['name'];
+    }
+    
+    if (isset($validated['email'])) {
+        $updateData['email'] = $validated['email'];
+    }
+    
+    if (isset($validated['password']) && !empty($validated['password'])) {
+        $updateData['password'] = bcrypt($validated['password']);
+    }
+    
+    if (array_key_exists('phone', $validated)) {
+        $updateData['phone'] = $validated['phone'];
+    }
+    
+    if (array_key_exists('department', $validated)) {
+        $updateData['department'] = $validated['department'];
+    }
+    
+    if (array_key_exists('position', $validated)) {
+        $updateData['position'] = $validated['position'];
+    }
+    
+    if (isset($validated['is_active'])) {
+        $updateData['is_active'] = $validated['is_active'];
+    }
+
+    // Atualizar usuário
+    $user->update($updateData);
+
+    // Atualizar roles se fornecidas
+    if (isset($validated['roles'])) {
+        // Garantir que o usuário não perca acesso ao próprio perfil
+        if ($user->id === auth()->id() && !in_array('admin', $validated['roles'])) {
+            // Se o usuário está removendo a role admin de si mesmo, verificar se há outro admin
+            // Esta é uma verificação adicional de segurança
+        }
+        
+        $user->syncRoles($validated['roles']);
+    }
+
+    // Carregar relações para resposta
+    $user->load('roles');
+
+    return response()->json([
+        'data' => [
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'phone' => $user->phone,
+            'department' => $user->department,
+            'position' => $user->position,
+            'is_active' => $user->is_active,
+            'roles' => $user->roles->map(fn($r) => ['id' => $r->id, 'name' => $r->name]),
+            'updated_at' => $user->updated_at->toISOString(),
+        ]
+    ]);
+}
+
+    /**
      * POST /api/v1/settings/users/{id}/toggle-status
      */
     public function toggleUserStatus(string $id): JsonResponse

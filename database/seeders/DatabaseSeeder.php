@@ -16,14 +16,15 @@ class DatabaseSeeder extends Seeder
             
             // Dados de negócio
             EntitySeeder::class,
+            ContractProcedureSeeder::class,
             ContractTypeSeeder::class,
-            TaxConfigurationSeeder::class,
-            UraSeeder::class, // ← NOVO
-            ContractProcedureSeeder::class, // ← NOVO
             ContractSeeder::class,
             GuaranteeSeeder::class,
+            PACSeeder::class,
             MeasurementSeeder::class,
             PaymentSeeder::class,
+            TaxConfigurationSeeder::class,
+            UraSeeder::class, // ← NOVO
         ]);
     }
 }
