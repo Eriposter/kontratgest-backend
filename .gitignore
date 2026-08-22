@@ -1,14 +1,9 @@
-```
+```php
 # Compiled and build artifacts
 *.pyc
 __pycache__/
 *.o
 *.obj
-dist/
-build/
-coverage/
-htmlcov/
-.coverage
 *.class
 *.exe
 *.dll
@@ -24,13 +19,19 @@ composer.lock
 .env.local
 .env.*
 
-# Logs and temp files
+# Build and distribution
+dist/
+build/
+target/
+coverage/
+htmlcov/
+.coverage
 *.log
 *.tmp
 *.swp
 *.swo
 
-# Editors
+# Editors and IDEs
 .vscode/
 .idea/
 *.swp
@@ -42,14 +43,6 @@ Thumbs.db
 
 # Laravel specific
 bootstrap/cache/
-storage/framework/cache/
 storage/logs/
-public/storage
-
-# Database
-database/seeds/
-database/factories/
-
-# Testing
-.phpunit.result.cache
+*.env.backup
 ```
