@@ -27,11 +27,13 @@ class Guarantee extends Model
         'guarantee_number',
         'guarantee_type',
         'purpose',
+        'contract_type',
         'issuing_entity',
         'issuing_entity_nif',
         'issuing_entity_contact',
         'currency',
         'amount',
+        'percentage_rate',
         'exchange_rate',
         'issue_date',
         'expiry_date',
@@ -54,6 +56,7 @@ class Guarantee extends Model
         'purpose' => GuaranteePurpose::class,
         'currency' => Currency::class,
         'amount' => 'decimal:2',
+        'percentage_rate' => 'decimal:2',
         'exchange_rate' => 'decimal:6',
         'issue_date' => 'date',
         'expiry_date' => 'date',
@@ -150,6 +153,44 @@ class Guarantee extends Model
     public function getCanExecuteAttribute(): bool
     {
         return $this->status === 'active' && !$this->was_executed;
+    }
+
+    /**
+     * Obter percentagem aplicável baseada no tipo de contrato e propósito
+     */
+    public function getApplicablePercentageAttribute(): float
+    {
+        // Contratos de concessão: 1-5%
+        // Outros contratos: 5-15%
+        if ($this->contract_type === 'concession') {
+            return match ($this->purpose) {
+                GuaranteePurpose::BID => 1.0,
+                GuaranteePurpose::PERFORMANCE => 3.0,
+                GuaranteePurpose::ADVANCE_PAYMENT => 5.0,
+                default => 2.0,
+            };
+        }
+        
+        // Outros tipos de contrato
+        return match ($this->purpose) {
+            GuaranteePurpose::BID => 5.0,
+            GuaranteePurpose::PERFORMANCE => 10.0,
+            GuaranteePurpose::ADVANCE_PAYMENT => 15.0,
+            default => 7.5,
+        };
+    }
+
+    /**
+     * Calcular valor da caução baseado na percentagem e valor do contrato
+     */
+    public function getCalculatedAmountAttribute(): ?float
+    {
+        if (!$this->contract || !$this->contract->total_amount) {
+            return null;
+        }
+        
+        $percentage = $this->percentage_rate ?? $this->applicable_percentage;
+        return $this->contract->total_amount * ($percentage / 100);
     }
 
     // ─── Boot ────────────────────────────────────────────────

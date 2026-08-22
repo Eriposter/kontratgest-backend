@@ -24,6 +24,8 @@ class PlanNeed extends Model
         'estimated_amount',
         'executed_amount',
         'contract_id',
+        'procedure_start_date',
+        'procedure_end_date',
         'priority',
         'planned_quarter',
         'status',
@@ -33,6 +35,8 @@ class PlanNeed extends Model
         'estimated_amount' => 'decimal:2',
         'executed_amount' => 'decimal:2',
         'planned_quarter' => 'integer',
+        'procedure_start_date' => 'date',
+        'procedure_end_date' => 'date',
     ];
 
    public function plan(): BelongsTo

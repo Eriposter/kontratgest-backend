@@ -50,6 +50,7 @@ class Payment extends Model
         'approved_at',
         'invoice_number',
         'supporting_documents',
+        'payment_documents',
     ];
 
     protected $casts = [
@@ -70,6 +71,7 @@ class Payment extends Model
         'requested_at' => 'datetime',
         'approved_at' => 'datetime',
         'supporting_documents' => 'array',
+        'payment_documents' => 'array',
     ];
 
     // ─── Relationships ───────────────────────────────────────
@@ -146,6 +148,36 @@ class Payment extends Model
     public function getCanBePaidAttribute(): bool
     {
         return $this->status === 'approved';
+    }
+
+    /**
+     * Obter dias de vencimento apenas se não estiver pago
+     * O campo vencimento deve validar o estado, contando apenas enquanto o estado não for pago
+     */
+    public function getDaysUntilDueActiveAttribute(): ?int
+    {
+        if ($this->status === 'paid') {
+            return null; // Não conta dias de vencimento se já está pago
+        }
+        
+        if (!$this->due_date) {
+            return null;
+        }
+
+        return (int) now()->diffInDays($this->due_date, false);
+    }
+
+    /**
+     * Verificar se está vencido apenas se não estiver pago
+     */
+    public function getIsOverdueActiveAttribute(): bool
+    {
+        if ($this->status === 'paid') {
+            return false; // Não considera vencido se já está pago
+        }
+        
+        return $this->status === 'approved' 
+            && $this->due_date?->isPast();
     }
 
     // ─── Audit Logging ───────────────────────────────────────
