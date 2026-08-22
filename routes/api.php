@@ -103,17 +103,31 @@ Route::prefix('v1')
         // 2️⃣ apiResource (gera: index, store, show, update, destroy)
         Route::apiResource('pacs', PACController::class);
 
-        // 3️⃣ Rotas com prefixo {pac} (submit, approve, cancel, needs)
-        Route::prefix('pacs/{pac}')->group(function () {
-            Route::post('submit', [PACController::class, 'submit'])->name('pacs.submit');
-            Route::post('approve', [PACController::class, 'approve'])->name('pacs.approve');
-            Route::post('cancel', [PACController::class, 'cancel'])->name('pacs.cancel');
+        // ─── PAC: Necessidades (ANTES do apiResource) ────────────
+Route::prefix('pacs')->group(function () {
+    // Necessidades
+    Route::post('{plan}/needs', [PACController::class, 'addNeed'])->name('pacs.needs.add');
+    Route::put('needs/{need}', [PACController::class, 'updateNeed'])->name('pacs.needs.update');
+    Route::delete('needs/{need}', [PACController::class, 'deleteNeed'])->name('pacs.needs.delete');
+    
+    // Gerar contrato
+    Route::post('needs/{need}/generate-contract', [PACController::class, 'generateContract'])
+        ->name('pacs.needs.generate-contract');
+    
+    // Necessidades disponíveis
+    Route::get('available-needs', [PACController::class, 'getAvailableNeeds'])
+        ->name('pacs.available-needs');
+});
 
-            // Necessidades
-            Route::post('needs', [PACController::class, 'addNeed'])->name('pacs.needs.add');
-            Route::put('needs/{need}', [PACController::class, 'updateNeed'])->name('pacs.needs.update');
-            Route::delete('needs/{need}', [PACController::class, 'deleteNeed'])->name('pacs.needs.delete');
-        });
+// ── PAC: Resource (DEPOIS das rotas específicas) ────────
+Route::apiResource('pacs', PACController::class);
+
+// ─── PAC: Ações do plano ─────────────────────────────────
+Route::prefix('pacs/{pac}')->group(function () {
+    Route::post('submit', [PACController::class, 'submit'])->name('pacs.submit');
+    Route::post('approve', [PACController::class, 'approve'])->name('pacs.approve');
+    Route::post('cancel', [PACController::class, 'cancel'])->name('pacs.cancel');
+});
 
         // ─── Entidades ──────────────────────────────────────────────
         Route::controller(EntityController::class)

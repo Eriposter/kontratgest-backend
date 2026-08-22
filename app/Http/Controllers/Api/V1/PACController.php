@@ -89,42 +89,42 @@ class PACController extends Controller
     // ─── Necessidades ──────────────────────────────────────
 
     public function addNeed(Request $request, string $planId): PlanNeedResource
-    {
-        $plan = $this->pacService->find($planId);
+{
+    $plan = $this->pacService->find($planId);
 
-        $validated = $request->validate([
-            'contract_type' => 'required|in:works,goods,services,consultancy',
-            'procedure_type' => 'required|in:dynamic_electronic,invitation,limited_tender,direct_award',
-            'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'justification' => 'nullable|string',
-            'estimated_amount' => 'required|numeric|min:0',
-            'priority' => 'required|in:high,medium,low',
-            'planned_quarter' => 'nullable|integer|min:1|max:4',
-        ]);
+    $validated = $request->validate([
+        'contract_type' => 'required|in:public_works,goods_acquisition,services_acquisition,consultancy,goods_rental,public_works_concession,public_services_concession,other',
+        'procedure_type' => 'required|in:cp,clpq,clc,cs,cde,pce',
+        'title' => 'required|string|max:255',
+        'description' => 'nullable|string',
+        'justification' => 'nullable|string',
+        'estimated_amount' => 'required|numeric|min:0',
+        'priority' => 'required|in:high,medium,low',
+        'planned_quarter' => 'nullable|integer|min:1|max:4',
+    ]);
 
-        $need = $this->pacService->addNeed($plan, $validated);
-        return new PlanNeedResource($need);
-    }
+    $need = $this->pacService->addNeed($plan, $validated);
+    return new PlanNeedResource($need);
+}
 
-    public function updateNeed(Request $request, string $needId): PlanNeedResource
-    {
-        $need = PlanNeed::findOrFail($needId);
+public function updateNeed(Request $request, string $needId): PlanNeedResource
+{
+    $need = PlanNeed::findOrFail($needId);
 
-        $validated = $request->validate([
-            'contract_type' => 'sometimes|in:works,goods,services,consultancy',
-            'procedure_type' => 'sometimes|in:dynamic_electronic,invitation,limited_tender,direct_award',
-            'title' => 'sometimes|string|max:255',
-            'description' => 'nullable|string',
-            'justification' => 'nullable|string',
-            'estimated_amount' => 'sometimes|numeric|min:0',
-            'priority' => 'sometimes|in:high,medium,low',
-            'planned_quarter' => 'nullable|integer|min:1|max:4',
-        ]);
+    $validated = $request->validate([
+        'contract_type' => 'sometimes|in:public_works,goods_acquisition,services_acquisition,consultancy,goods_rental,public_works_concession,public_services_concession,other',
+        'procedure_type' => 'sometimes|in:cp,clpq,clc,cs,cde,pce',
+        'title' => 'sometimes|string|max:255',
+        'description' => 'nullable|string',
+        'justification' => 'nullable|string',
+        'estimated_amount' => 'sometimes|numeric|min:0',
+        'priority' => 'sometimes|in:high,medium,low',
+        'planned_quarter' => 'nullable|integer|min:1|max:4',
+    ]);
 
-        $need = $this->pacService->updateNeed($need, $validated);
-        return new PlanNeedResource($need);
-    }
+    $need = $this->pacService->updateNeed($need, $validated);
+    return new PlanNeedResource($need);
+}
 
     public function deleteNeed(string $needId): JsonResponse
     {
@@ -138,7 +138,7 @@ class PACController extends Controller
     $validated = $request->validate([
         'title' => 'required|string|max:255',
         'object' => 'nullable|string',
-        'contract_type' => 'required|string',
+        'contract_type' => 'required|in:public_works,goods_acquisition,services_acquisition,consultancy,goods_rental,public_works_concession,public_services_concession,other',
         'counterparty_id' => 'required|uuid|exists:entities,id',
         'total_amount' => 'required|numeric|min:0',
         'start_date' => 'required|date',
@@ -146,14 +146,9 @@ class PACController extends Controller
         'signature_date' => 'nullable|date',
         'vat_rate' => 'nullable|numeric|min:0|max:100',
         'withholding_tax_rate' => 'nullable|numeric|min:0|max:100',
-        'payment_model' => 'nullable|string|in:single,installment,measurement,consignment,milestone',
+        'payment_model' => 'required|in:single,installment,measurement,consignment,milestone',
         'notes' => 'nullable|string',
     ]);
-
-    // 🔥 GARANTIR QUE PAYMENT_MODEL TEM VALOR PADRÃO
-    if (empty($validated['payment_model'])) {
-        $validated['payment_model'] = 'single';
-    }
 
     $contract = $this->pacService->generateContract($need, $validated);
 

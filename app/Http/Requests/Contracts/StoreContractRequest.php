@@ -22,6 +22,9 @@ class StoreContractRequest extends FormRequest
             'contract_number' => ['nullable', 'string', 'max:50', 'unique:contracts,contract_number'],
             'contract_type_id' => ['required', 'uuid', 'exists:contract_types,id'],
             'counterparty_id' => ['required', 'uuid', 'exists:entities,id'],
+
+            'contract_type' => 'required|in:public_works,goods_acquisition,services_acquisition,consultancy,goods_rental,public_works_concession,public_services_concession,other',
+        'procedure_type' => 'required|in:cp,clpq,clc,cs,cde,pce',
             
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:2000'],

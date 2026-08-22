@@ -79,13 +79,14 @@ class PlanNeed extends Model
     }
 
     public function getStatusLabelAttribute(): string
-    {
-        $labels = [
-            'planned' => 'Planeada',
-            'in_progress' => 'Em Curso',
-            'contracted' => 'Contratada',
-            'cancelled' => 'Cancelada',
-        ];
-        return $labels[$this->status] ?? $this->status;
-    }
+{
+    $labels = [
+        'planned' => 'Planeada',
+        'in_progress' => 'Em Curso',
+        'contracted' => 'Contratada',
+        'cancelled' => 'Cancelada',
+    ];
+
+    return $labels[$this->status] ?? $this->status ?? 'Desconhecido';
+}
 }
