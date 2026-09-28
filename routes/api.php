@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\V1\ContractProgressController;
 use App\Http\Controllers\Api\V1\SettingsController;
 use App\Http\Controllers\Api\V1\PACController;
 use App\Http\Controllers\Api\V1\GuaranteeDocumentController; 
+use App\Http\Controllers\Api\V1\ContractingProcedureController;
 
 
 
@@ -93,27 +94,38 @@ Route::prefix('v1')
 
         // ── Planos Anuais de Contratação ───────────────────────────
 
-        // 1️ Rotas personalizadas (ANTES do apiResource)
-        Route::get('pacs/available-needs', [PACController::class, 'getAvailableNeeds'])
-            ->name('pacs.available-needs');
+        // ─── PAC: Rotas Específicas (TODAS antes do apiResource) ──
+Route::prefix('pacs')->group(function () {
+    // Necessidades disponíveis
+    Route::get('available-needs', [PACController::class, 'getAvailableNeeds'])
+        ->name('pacs.available-needs');
+    
+    // Gerar contrato a partir de necessidade
+    Route::post('needs/{need}/generate-contract', [PACController::class, 'generateContract'])
+        ->name('pacs.needs.generate-contract');
+    
+    // Adicionar necessidade
+    Route::post('{plan}/needs', [PACController::class, 'addNeed'])
+        ->name('pacs.needs.add');
+    
+    // Atualizar necessidade
+    Route::put('needs/{need}', [PACController::class, 'updateNeed'])
+        ->name('pacs.needs.update');
+    
+    // Eliminar necessidade
+    Route::delete('needs/{need}', [PACController::class, 'deleteNeed'])
+        ->name('pacs.needs.delete');
+});
 
-        Route::post('pacs/needs/{need}/generate-contract', [PACController::class, 'generateContract'])
-            ->name('pacs.needs.generate-contract');
+// ─── PAC: Resource (index, store, show, update, destroy) ──
+Route::apiResource('pacs', PACController::class);
 
-        // 2️⃣ apiResource (gera: index, store, show, update, destroy)
-        Route::apiResource('pacs', PACController::class);
-
-        // 3️⃣ Rotas com prefixo {pac} (submit, approve, cancel, needs)
-        Route::prefix('pacs/{pac}')->group(function () {
-            Route::post('submit', [PACController::class, 'submit'])->name('pacs.submit');
-            Route::post('approve', [PACController::class, 'approve'])->name('pacs.approve');
-            Route::post('cancel', [PACController::class, 'cancel'])->name('pacs.cancel');
-
-            // Necessidades
-            Route::post('needs', [PACController::class, 'addNeed'])->name('pacs.needs.add');
-            Route::put('needs/{need}', [PACController::class, 'updateNeed'])->name('pacs.needs.update');
-            Route::delete('needs/{need}', [PACController::class, 'deleteNeed'])->name('pacs.needs.delete');
-        });
+// ─── PAC: Ações do plano (submit, approve, cancel) ─────────
+Route::prefix('pacs/{pac}')->group(function () {
+    Route::post('submit', [PACController::class, 'submit'])->name('pacs.submit');
+    Route::post('approve', [PACController::class, 'approve'])->name('pacs.approve');
+    Route::post('cancel', [PACController::class, 'cancel'])->name('pacs.cancel');
+});
 
         // ─── Entidades ──────────────────────────────────────────────
         Route::controller(EntityController::class)
@@ -141,15 +153,21 @@ Route::prefix('v1')
             });
 
         // ─── Upload de Documentos ───────────────────────────────────
-        Route::controller(DocumentUploadController::class)
-            ->prefix('documents')
-            ->name('documents.')
-            ->group(function () {
-                Route::post('/entities/{entity}/upload', 'uploadEntityDocument')->name('entities.upload');
-                Route::post('/contracts/{contract}/upload', 'uploadContractDocument')->name('contracts.upload');
-                Route::post('/guarantees/{guarantee}/upload', 'uploadGuaranteeDocument')->name('guarantees.upload');
-                Route::get('/{type}/{id}/download', 'download')->name('download');
-            });
+Route::controller(DocumentUploadController::class)
+    ->prefix('documents')
+    ->name('documents.')
+    ->group(function () {
+        Route::post('/entities/{entity}/upload', 'uploadEntityDocument')->name('entities.upload');
+        Route::post('/contracts/{contract}/upload', 'uploadContractDocument')->name('contracts.upload');
+        Route::post('/guarantees/{guarantee}/upload', 'uploadGuaranteeDocument')->name('guarantees.upload');
+        
+        // 🆕 Rotas para Pagamentos
+        Route::get('/payments/{payment}', 'listPaymentDocuments')->name('payments.list');
+        Route::post('/payments/{payment}/upload', 'uploadPaymentDocument')->name('payments.upload');
+          Route::delete('/payments/{payment}/{document}', 'deletePaymentDocument')->name('payments.delete');
+        
+        Route::get('/{type}/{id}/download', 'download')->name('download');
+    });
 
         // Contracts
         Route::controller(ContractController::class)->prefix('contracts')->name('contracts.')->group(function () {
@@ -167,6 +185,21 @@ Route::prefix('v1')
             Route::post('/{contract}/terminate', 'terminate')->name('terminate');
             Route::post('/{contract}/register-bna', 'registerBna')->name('register-bna');
         });
+
+
+    // ─── Procedimentos de Contratação (Procurement) ───────────
+Route::controller(\App\Http\Controllers\Api\V1\ProcurementProcedureController::class)
+    ->prefix('procurement-procedures')
+    ->name('procurement-procedures.')
+    ->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::post('/', 'store')->name('store');
+        Route::get('/{procedure}', 'show')->name('show');
+        Route::post('/{procedure}/start', 'start')->name('start');
+        Route::post('/{procedure}/phases/{phase}/complete', 'completePhase')->name('phases.complete');
+        Route::post('/{procedure}/complete', 'complete')->name('complete');
+        Route::post('/{procedure}/cancel', 'cancel')->name('cancel');
+    });
 
         // ─── Documentos de Contratos ────────────────────────────────
         Route::controller(ContractDocumentController::class)
@@ -238,6 +271,7 @@ Route::prefix('v1')
             Route::post('/{payment}/reject', 'reject')->name('reject');
             Route::post('/{payment}/cancel', 'cancel')->name('cancel');
             Route::post('/measurements/{measurement}/create-payment', 'createFromMeasurement')->name('create-from-measurement');
+            
         });
 
         // Tax Configurations

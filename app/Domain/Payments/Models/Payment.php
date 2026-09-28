@@ -51,6 +51,9 @@ class Payment extends Model
         'invoice_number',
         'supporting_documents',
         'payment_documents',
+        'payment_method',
+    'payment_proof_path', // ← ADICIONAR
+    'status',
     ];
 
     protected $casts = [

@@ -30,12 +30,15 @@ class PACController extends Controller
         return AnnualContractPlanResource::collection($plans);
     }
 
-    public function show(string $id): AnnualContractPlanResource
+public function show(string $id): AnnualContractPlanResource
 {
     $plan = $this->pacService->find($id);
     
-    // Carregar contratos das necessidades
-    $plan->load(['needs.contract']);
+    // 🔥 CARREGAR AS RELAÇÕES NECESSÁRIAS
+    $plan->load([
+        'needs.contract', 
+        'needs.contractingProcedure'  // ← ADICIONAR
+    ]);
     
     return new AnnualContractPlanResource($plan);
 }
@@ -93,15 +96,17 @@ class PACController extends Controller
         $plan = $this->pacService->find($planId);
 
         $validated = $request->validate([
-            'contract_type' => 'required|in:works,goods,services,consultancy',
-            'procedure_type' => 'required|in:dynamic_electronic,invitation,limited_tender,direct_award',
-            'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'justification' => 'nullable|string',
-            'estimated_amount' => 'required|numeric|min:0',
-            'priority' => 'required|in:high,medium,low',
-            'planned_quarter' => 'nullable|integer|min:1|max:4',
-        ]);
+        'contract_type' => 'required|in:public_works,goods_acquisition,services_acquisition,consultancy,goods_rental,public_works_concession,public_services_concession,other',
+        'procedure_type' => 'required|in:cp,clpq,clc,cs,cde,pce',
+        'title' => 'required|string|max:255',
+        'description' => 'nullable|string',
+        'justification' => 'nullable|string',
+        'estimated_amount' => 'required|numeric|min:0',
+        'priority' => 'required|in:high,medium,low',
+        'planned_quarter' => 'nullable|integer|min:1|max:4',
+        'proposed_start_date' => 'nullable|date',
+        'proposed_end_date' => 'nullable|date|after_or_equal:proposed_start_date',
+    ]);
 
         $need = $this->pacService->addNeed($plan, $validated);
         return new PlanNeedResource($need);
@@ -112,15 +117,17 @@ class PACController extends Controller
         $need = PlanNeed::findOrFail($needId);
 
         $validated = $request->validate([
-            'contract_type' => 'sometimes|in:works,goods,services,consultancy',
-            'procedure_type' => 'sometimes|in:dynamic_electronic,invitation,limited_tender,direct_award',
-            'title' => 'sometimes|string|max:255',
-            'description' => 'nullable|string',
-            'justification' => 'nullable|string',
-            'estimated_amount' => 'sometimes|numeric|min:0',
-            'priority' => 'sometimes|in:high,medium,low',
-            'planned_quarter' => 'nullable|integer|min:1|max:4',
-        ]);
+        'contract_type' => 'sometimes|in:public_works,goods_acquisition,services_acquisition,consultancy,goods_rental,public_works_concession,public_services_concession,other',
+        'procedure_type' => 'sometimes|in:cp,clpq,clc,cs,cde,pce',
+        'title' => 'sometimes|string|max:255',
+        'description' => 'nullable|string',
+        'justification' => 'nullable|string',
+        'estimated_amount' => 'sometimes|numeric|min:0',
+        'priority' => 'sometimes|in:high,medium,low',
+        'planned_quarter' => 'nullable|integer|min:1|max:4',
+        'proposed_start_date' => 'nullable|date',
+        'proposed_end_date' => 'nullable|date|after_or_equal:proposed_start_date',
+    ]);
 
         $need = $this->pacService->updateNeed($need, $validated);
         return new PlanNeedResource($need);

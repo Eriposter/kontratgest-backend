@@ -129,6 +129,105 @@ class DocumentUploadController extends Controller
             ->response()
             ->setStatusCode(201);
     }
+    /**
+ * Upload de documento de pagamento
+ * POST /api/v1/documents/payments/{payment}/upload
+ */
+public function uploadPaymentDocument(Request $request, string $paymentId): JsonResponse
+{
+    $request->validate([
+        'document' => 'required|file|mimes:pdf,jpg,jpeg,png,doc,docx|max:10240',
+        'document_type' => 'required|string|in:payment_proof,invoice,receipt,contract,other',
+    ]);
+
+    $payment = \App\Domain\Payments\Models\Payment::findOrFail($paymentId);
+    
+    $file = $request->file('document');
+    $documentType = $request->input('document_type');
+    
+    $fileName = $documentType . '_' . time() . '_' . Str::slug($payment->payment_number) . '.' . $file->getClientOriginalExtension();
+    
+    // 1. Forçar o disco 'public' ao guardar
+    $path = $file->storeAs('payments/documents', $fileName, 'public');
+    
+    // 2. 🔥 CORREÇÃO: Forçar o disco 'public' ao gerar o URL
+    $url = \Illuminate\Support\Facades\Storage::disk('public')->url($path);
+
+    $documents = $payment->payment_documents ?? [];
+    $documents[] = [
+        'id' => (string) Str::uuid(),
+        'type' => $documentType,
+        'title' => $file->getClientOriginalName(),
+        'file_name' => $fileName,
+        'file_path' => $path,
+        'file_url' => $url,
+        'file_size' => $file->getSize(),
+        'mime_type' => $file->getMimeType(),
+        'uploaded_at' => now()->toISOString(),
+        'uploaded_by' => auth()->id(),
+        'uploaded_by_name' => auth()->user()?->name,
+    ];
+
+    $payment->update(['payment_documents' => $documents]);
+
+    if ($documentType === 'payment_proof') {
+        $payment->update(['payment_proof_path' => $path]);
+    }
+
+    return response()->json(['data' => $documents], 201);
+}
+
+/**
+ * Listar documentos de um pagamento
+ * GET /api/v1/documents/payments/{payment}
+ */
+public function listPaymentDocuments(string $paymentId): JsonResponse
+{
+    $payment = \App\Domain\Payments\Models\Payment::findOrFail($paymentId);
+    
+    $documents = $payment->payment_documents ?? [];
+    
+    return response()->json([
+        'data' => $documents,
+    ]);
+}
+
+/**
+ * Eliminar documento de pagamento
+ * DELETE /api/v1/documents/payments/{payment}/{documentId}
+ */
+public function deletePaymentDocument(string $paymentId, string $documentId): JsonResponse
+{
+    $payment = \App\Domain\Payments\Models\Payment::findOrFail($paymentId);
+    
+    $documents = $payment->payment_documents ?? [];
+    
+    // 1. Encontrar o índice do documento pelo ID (UUID)
+    $documentIndex = array_search($documentId, array_column($documents, 'id'));
+    
+    if ($documentIndex === false) {
+        return response()->json(['message' => 'Documento não encontrado'], 404);
+    }
+
+    $document = $documents[$documentIndex];
+    
+    // 2. Eliminar o ficheiro físico (usar 'file_path' em vez de 'path')
+    if (isset($document['file_path']) && Storage::disk('public')->exists($document['file_path'])) {
+        Storage::disk('public')->delete($document['file_path']);
+    }
+
+    // 3. Remover do array
+    array_splice($documents, $documentIndex, 1);
+    
+    $payment->update(['payment_documents' => $documents]);
+
+    // 4. Se era o comprovativo principal, limpar o campo dedicado
+    if (($document['type'] ?? '') === 'payment_proof' && ($payment->payment_proof_path ?? null) === $document['file_path']) {
+        $payment->update(['payment_proof_path' => null]);
+    }
+
+    return response()->json(['message' => 'Documento eliminado com sucesso']);
+}
 
     /**
      * GET /api/v1/documents/{type}/{id}/download

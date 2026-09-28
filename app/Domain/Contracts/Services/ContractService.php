@@ -14,6 +14,8 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use App\Domain\PAC\Models\PlanNeed;
+use App\Domain\PAC\Models\AnnualContractPlan;
 
 class ContractService
 {
@@ -130,7 +132,7 @@ class ContractService
     return $contract->fresh()->load('paymentSchedules', 'type', 'counterparty');
 }
 
-    /**
+        /**
      * Submeter contrato para aprovação.
      */
     public function submitForApproval(Contract $contract): Contract
@@ -139,47 +141,81 @@ class ContractService
             throw new \InvalidArgumentException('Contrato não pode ser submetido para aprovação neste estado.');
         }
 
-        $contract->update(['status' => ContractStatus::PENDING_APPROVAL]);
+        // 🔥 REGRA DE NEGÓCIO: Contratos > 182.000.000 AOA exigem Caução
+        if ($contract->total_amount > 182000000) {
+            // Ajusta o namespace do modelo Guarantee se for diferente no teu projeto
+            $hasGuarantee = \App\Domain\Guarantees\Models\Guarantee::where('contract_id', $contract->id)
+                ->where('status', 'active') // Ou apenas ->exists() se qualquer estado for válido
+                ->exists();
 
-        // Aqui podes disparar notificações para aprovadores
-        // event(new ContractSubmittedForApproval($contract));
+            if (!$hasGuarantee) {
+                throw new \Exception(
+                    "Contratos com valor superior a 182.000.000 AOA exigem obrigatoriamente " .
+                    "uma Caução ativa vinculada antes de poderem ser submetidos para aprovação."
+                );
+            }
+        }
+
+        $contract->update([
+            'status' => ContractStatus::PENDING_APPROVAL,
+            'submitted_at' => now(),
+            'submitted_by' => auth()->id(),
+        ]);
 
         return $contract;
     }
 
     private function syncPACNeedStatus(Contract $contract): void
-    {
-        if (!$contract->pac_need_id) return;
+{
+    // Verificar se o contrato está vinculado a uma necessidade do PAC
+    if (!$contract->pac_need_id) {
+        return;
+    }
 
-        $need = PlanNeed::find($contract->pac_need_id);
-        if (!$need) return;
+    // Carregar a necessidade
+    $need = \App\Domain\PAC\Models\PlanNeed::find($contract->pac_need_id);
+    
+    if (!$need) {
+        return;
+    }
 
-        // Mapear estado do contrato para estado da necessidade
-        $statusMap = [
-            'draft' => 'contracted',
-            'pending_approval' => 'contracted',
-            'approved' => 'contracted',
-            'active' => 'contracted',
-            'suspended' => 'suspended',
-            'terminated' => 'cancelled',
-            'expired' => 'completed',
-        ];
+    // Mapeamento de status
+    $statusMap = [
+        'draft' => 'contracted',
+        'pending_approval' => 'contracted',
+        'approved' => 'contracted',
+        'active' => 'contracted',
+        'suspended' => 'suspended',
+        'terminated' => 'cancelled',
+        'expired' => 'completed',
+    ];
 
-        $newNeedStatus = $statusMap[$contract->status] ?? 'contracted';
+    // ✅ CORREÇÃO: Extrair o valor do Enum corretamente
+    // Se for um Enum (BackedEnum), usa ->value. Se for string, usa diretamente.
+    $statusValue = $contract->status instanceof \BackedEnum 
+        ? $contract->status->value 
+        : (string) $contract->status;
+        
+    $newNeedStatus = $statusMap[$statusValue] ?? 'contracted';
 
-        $need->update([
-            'status' => $newNeedStatus,
-            'executed_amount' => $contract->total_amount,
-        ]);
+    // Atualizar a necessidade
+    $need->update([
+        'status' => $newNeedStatus,
+        'executed_amount' => $contract->total_amount,
+    ]);
 
-        // Recalcular totais do PAC
-        $plan = $need->plan;
+    // Recalcular totais do plano
+    $plan = $need->plan;
+    if ($plan) {
+        $totalExecuted = \App\Domain\PAC\Models\PlanNeed::where('plan_id', $plan->id)
+            ->whereNotNull('executed_amount')
+            ->sum('executed_amount');
+        
         $plan->update([
-            'total_executed_amount' => $plan->needs()
-                ->whereNotNull('executed_amount')
-                ->sum('executed_amount'),
+            'total_executed_amount' => $totalExecuted,
         ]);
     }
+}
 
     public function approve(Contract $contract, string $approvedBy): Contract
     {

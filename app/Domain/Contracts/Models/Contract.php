@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
+use App\Domain\PAC\Models\ContractingProcedure;
 
 class Contract extends Model
 {
@@ -223,4 +224,9 @@ public function pacNeed(): BelongsTo
             ->dontSubmitEmptyLogs()
             ->setDescriptionForEvent(fn (string $eventName) => "Contrato {$this->contract_number} foi {$eventName}");
     }
+
+    public function contractingProcedure(): BelongsTo
+{
+    return $this->belongsTo(ContractingProcedure::class);
+}
 }
